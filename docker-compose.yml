@@ -1,0 +1,86 @@
+networks:
+  hadoop_net:
+    driver: bridge
+
+volumes:
+  namenode_data:
+  datanode_data:
+
+services:
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    hostname: namenode
+    networks:
+      - hadoop_net
+    environment:
+      - CLUSTER_NAME=test-cluster
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9005
+      - HDFS_CONF_dfs_namenode_rpc__address=namenode:9005
+      - HDFS_CONF_dfs_namenode_hostname=localhost
+      - HDFS_CONF_dfs_replication=1
+      - HDFS_CONF_dfs_namenode_datanode_registration_ip___hostname___check=false
+    ports:
+      - "9870:9870"
+      - "9005:9005"
+    volumes:
+      - namenode_data:/hadoop/dfs/name
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9870"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    hostname: datanode
+    networks:
+      - hadoop_net
+    environment:
+      - CLUSTER_NAME=test-cluster
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9005
+      - HDFS_CONF_dfs_datanode_hostname=localhost
+      - HDFS_CONF_dfs_replication=1
+      - SERVICE_PRECONDITION=namenode:9870
+    ports:
+      - "9864:9864"
+      - "9866:9866"
+    volumes:
+      - datanode_data:/hadoop/dfs/data
+    depends_on:
+      namenode:
+        condition: service_healthy
+
+  hdfs-init:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: hdfs-init
+    networks:
+      - hadoop_net
+    depends_on:
+      namenode:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        echo "Waiting for HDFS to be ready..."
+        sleep 10
+
+        export HADOOP_CONF_DIR=/etc/hadoop
+
+        # Override core-site to point at the namenode container
+        cat > /etc/hadoop/core-site.xml <<EOF
+        <configuration>
+          <property>
+            <name>fs.defaultFS</name>
+            <value>hdfs://namenode:9005</value>
+          </property>
+        </configuration>
+        EOF
+
+        hdfs dfs -mkdir -p /user/muhammed_mahmoud
+        hdfs dfs -chown muhammed_mahmoud:muhammed_mahmoud /user/muhammed_mahmoud
+        hdfs dfs -chmod 755 /user/muhammed_mahmoud
+        echo "Done!"
+        hdfs dfs -ls /user/
+    restart: "no"
