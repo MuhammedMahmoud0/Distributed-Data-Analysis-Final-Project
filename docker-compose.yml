@@ -5,6 +5,8 @@ networks:
 volumes:
   namenode_data:
   datanode_data:
+  datanode2_data:
+  datanode3_data:
 
 services:
   namenode:
@@ -18,7 +20,7 @@ services:
       - CORE_CONF_fs_defaultFS=hdfs://namenode:9005
       - HDFS_CONF_dfs_namenode_rpc__address=namenode:9005
       - HDFS_CONF_dfs_namenode_hostname=localhost
-      - HDFS_CONF_dfs_replication=1
+      - HDFS_CONF_dfs_replication=3
       - HDFS_CONF_dfs_namenode_datanode_registration_ip___hostname___check=false
     ports:
       - "9870:9870"
@@ -40,14 +42,47 @@ services:
     environment:
       - CLUSTER_NAME=test-cluster
       - CORE_CONF_fs_defaultFS=hdfs://namenode:9005
-      - HDFS_CONF_dfs_datanode_hostname=localhost
-      - HDFS_CONF_dfs_replication=1
+      - HDFS_CONF_dfs_replication=3
       - SERVICE_PRECONDITION=namenode:9870
     ports:
       - "9864:9864"
       - "9866:9866"
     volumes:
       - datanode_data:/hadoop/dfs/data
+    depends_on:
+      namenode:
+        condition: service_healthy
+
+  datanode2:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode2
+    hostname: datanode2
+    networks:
+      - hadoop_net
+    environment:
+      - CLUSTER_NAME=test-cluster
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9005
+      - HDFS_CONF_dfs_replication=3
+      - SERVICE_PRECONDITION=namenode:9870
+    volumes:
+      - datanode2_data:/hadoop/dfs/data
+    depends_on:
+      namenode:
+        condition: service_healthy
+
+  datanode3:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode3
+    hostname: datanode3
+    networks:
+      - hadoop_net
+    environment:
+      - CLUSTER_NAME=test-cluster
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9005
+      - HDFS_CONF_dfs_replication=3
+      - SERVICE_PRECONDITION=namenode:9870
+    volumes:
+      - datanode3_data:/hadoop/dfs/data
     depends_on:
       namenode:
         condition: service_healthy
@@ -60,6 +95,12 @@ services:
     depends_on:
       namenode:
         condition: service_healthy
+      datanode:
+        condition: service_started
+      datanode2:
+        condition: service_started
+      datanode3:
+        condition: service_started
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |

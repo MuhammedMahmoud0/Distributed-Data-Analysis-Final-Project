@@ -1,3 +1,10 @@
 docker-compose.yml.bak
 docker-compose2.yml.bak
 .env
+/mlartifacts
+/venv
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+mlflow.db
